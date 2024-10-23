@@ -72,66 +72,82 @@ export default function Home() {
   const generateInvoicePDF = (invoice: any) => {
     const pdf = new jsPDF();
   
-    // Set background color
+    // Set background color (light beige)
     pdf.setFillColor(255, 248, 225);
     pdf.rect(0, 0, pdf.internal.pageSize.width, pdf.internal.pageSize.height, 'F');
   
-    // Add logo, center-aligned
-    pdf.addImage("/logo1.png", "PNG", pdf.internal.pageSize.width / 2 - 25, 20, 50, 25); // Center logo
+    // Add logo at the top, centered
+    pdf.addImage("/logo1.png", "PNG", pdf.internal.pageSize.width / 2 - 25, 20, 50, 25); // Center the logo
   
-    // Add title
-    pdf.setFontSize(28);
-    pdf.setTextColor(245, 158, 11); // amber-500
+    // Add title with modern font and underline
+    pdf.setFontSize(26);
+    pdf.setTextColor(34, 34, 34); // Dark gray
     pdf.setFont("helvetica", "bold");
     pdf.text("Biscuit Buddy Invoice", pdf.internal.pageSize.width / 2, 60, { align: "center" });
   
     // Add horizontal line separator
-    pdf.setLineWidth(0.5);
-    pdf.setDrawColor(245, 158, 11);
+    pdf.setLineWidth(0.7);
+    pdf.setDrawColor(200, 200, 200); // Light gray
     pdf.line(20, 65, pdf.internal.pageSize.width - 20, 65);
   
-    // Add invoice details
-    pdf.setFontSize(14);
+    // Add invoice details section with right and left alignment for clean look
+    pdf.setFontSize(12);
     pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(0, 0, 0);
+    pdf.setTextColor(60, 60, 60); // Medium gray
     pdf.text(`Name: ${invoice.name}`, 20, 80);
-    pdf.text(`Date: ${format(invoice.date, "PPP")}`, 20, 90);
+    pdf.text(`Date: ${format(invoice.date, "PPP")}`, pdf.internal.pageSize.width - 80, 80); // Right aligned for date
   
-    // Adjust table styling
+    // Invoice details styling
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 0, 0);
+  
+    // Format the amounts without the ₹ symbol and add bold
+    const formatCurrency = (amount: number) => `${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  
+    // Add a clear table with proper alignment for currency and text
     (pdf as any).autoTable({
-      startY: 110,
+      startY: 100,
       head: [["Description", "Amount"]],
       body: [
-        ["Advanced Payment", `₹${invoice.advancedPayment.toFixed(2)}`],
-        ["Share", `₹${invoice.share.toFixed(2)}`],
-        ["Total Due", `₹${Math.max(0, invoice.share).toFixed(2)}`],
+        ["Advanced Payment", formatCurrency(invoice.advancedPayment)],
+        ["Share", formatCurrency(invoice.share)],
+        [
+          { content: "Total Amount to Pay", styles: { fontStyle: "bold" } },
+          { content: formatCurrency(Math.max(0, invoice.share)), styles: { fontStyle: "bold" } }
+        ],
       ],
-      theme: 'grid',
+      theme: 'striped',
       headStyles: {
-        fillColor: [245, 158, 11], // Amber
-        textColor: [255, 255, 255],
-        halign: 'center', // Center the headers
+        fillColor: [245, 158, 11], // Yellow (amber-500)
+        textColor: [255, 255, 255], // White text
         fontSize: 12,
       },
       bodyStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
+        halign: 'right', // Right-align numeric values
         fontSize: 12,
-        halign: 'center', // Center the body text
+        fontStyle: 'bold', // Make amounts bold
       },
-      alternateRowStyles: { fillColor: [255, 251, 235] },
-      margin: { left: 20, right: 20 },
-      tableWidth: 'wrap', // Adjust to content width
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'normal' }, // Left-align text in the first column (description)
+        1: { halign: 'right', fontStyle: 'bold' }, // Right-align amounts and make them bold
+      },
+      alternateRowStyles: { fillColor: [255, 248, 225] }, // Light yellow alternating rows
+      margin: { top: 100, left: 20, right: 20 }, // Larger margins
+      tableWidth: 'auto',
+      styles: { overflow: 'linebreak' },
     });
   
-    // Add footer with centered text
+    // Add footer with center alignment and a subtle note
     pdf.setFontSize(12);
-    pdf.setTextColor(245, 158, 11);
+    pdf.setTextColor(34, 34, 34); // Dark gray
     pdf.text("Thank you for using Biscuit Buddy!", pdf.internal.pageSize.width / 2, pdf.internal.pageSize.height - 30, { align: "center" });
   
     // Save the PDF
     pdf.save(`${invoice.name}_invoice.pdf`);
   };
+  
+  
+  
   
 
   return (
@@ -332,7 +348,7 @@ export default function Home() {
                         </p>
                         <div className="border-t border-amber-200 pt-2 mt-2">
                           <p className="flex justify-between font-bold">
-                            <span>Total Due:</span>
+                            <span>Total Amount to Pay:</span>
                             <span>
                               ₹{Math.max(0, invoice.share).toFixed(2)}
                             </span>
