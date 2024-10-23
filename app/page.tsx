@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { biscuitBuddyFormSchema } from "@/lib/zod";
 import { z } from "zod";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, Download } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -14,17 +17,29 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
+import jsPDF from "jspdf"
+import "jspdf-autotable"
 
 type FormValues = z.infer<typeof biscuitBuddyFormSchema>;
 
 export default function Home() {
+  const [invoices, setInvoices] = useState<any[]>([]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(biscuitBuddyFormSchema),
     defaultValues: {
-      // total_money: 0,
-      // total_team_members: 0,
+      total_money: 0,
+      total_team_members: 0,
       team_members: [],
+      date: new Date(),
     },
   });
 
@@ -32,22 +47,71 @@ export default function Home() {
   const teamMembers = form.watch("team_members");
 
   const calculateShares = (values: FormValues) => {
-    // Implement share calculation logic here
     const calculatedShares = values.team_members.map((member) => {
-      // Example: Divide total money equally and subtract advancedPayment
-      const share = values.total_money / totalTeamMembers;
+      const share = values.total_money / values.total_team_members;
       return share - member.advancedPayment;
     });
-    alert(calculatedShares);
-    // You can set the calculated shares to state or use them as needed
+
+    const generatedInvoices = values.team_members.map((member, index) => ({
+      name: member.name,
+      advancedPayment: member.advancedPayment,
+      share: calculatedShares[index],
+      date: values.date,
+    }));
+
+    setInvoices(generatedInvoices);
   };
 
-  // Update the team members array based on the number of team members
   const updateTeamMembers = (totalMembers: number) => {
     const newTeamMembers = Array(totalMembers)
       .fill(null)
       .map(() => ({ name: "", advancedPayment: 0 }));
-    form.setValue("team_members", newTeamMembers); // Update form value for team members
+    form.setValue("team_members", newTeamMembers);
+  };
+
+  const generateInvoicePDF = (invoice: any) => {
+    const pdf = new jsPDF();
+    
+    // Set background color
+    pdf.setFillColor(255, 248, 225);
+    pdf.rect(0, 0, pdf.internal.pageSize.width, pdf.internal.pageSize.height, 'F');
+    
+    // Add logo
+    pdf.addImage("/logo.png", "PNG", 15, 15, 50, 25);
+    
+    // Add title
+    pdf.setFontSize(24);
+    pdf.setTextColor(245, 158, 11); // amber-500
+    pdf.text("Biscuit Buddy Invoice", 105, 30, { align: "center" });
+    
+    // Add invoice details
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Name: ${invoice.name}`, 20, 50);
+    pdf.text(`Date: ${format(invoice.date, "PPP")}`, 20, 60);
+    
+    // Add table
+    (pdf as any).autoTable({
+      startY: 70,
+      head: [["Description", "Amount"]],
+      body: [
+        ["Advanced Payment", `₹${invoice.advancedPayment.toFixed(2)}`],
+        ["Share", `₹${invoice.share.toFixed(2)}`],
+        ["Total Due", `₹${Math.max(0, invoice.share).toFixed(2)}`],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
+      bodyStyles: { fillColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [255, 251, 235] },
+    });
+    
+    // Add footer
+    pdf.setFontSize(12);
+    pdf.setTextColor(245, 158, 11); // amber-500
+    pdf.text("Thank you for using Biscuit Buddy!", 105, pdf.internal.pageSize.height - 20, { align: "center" });
+    
+    // Save the PDF
+    pdf.save(`${invoice.name}_invoice.pdf`);
   };
 
   return (
@@ -56,7 +120,7 @@ export default function Home() {
         <div className="bg-white shadow-lg rounded-3xl overflow-hidden">
           <div className="bg-amber-200 p-6 flex justify-center items-center">
             <Image
-              src="/logo.png"
+              src="/logo1.png"
               alt="Biscuit Buddy Logo"
               width={150}
               height={75}
@@ -69,20 +133,18 @@ export default function Home() {
                 onSubmit={form.handleSubmit(calculateShares)}
                 className="space-y-6"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="total_money"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className={`${form.formState.errors.total_money ? "text-black" : ""}`}>Total Biscuit Money</FormLabel>
+                        <FormLabel>Total Biscuit Money</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             placeholder="Enter amount"
                             type="number"
-                            // min="0"
-                            // step="0.01"
                             className="w-full"
                             onChange={(e) => {
                               const value = parseInt(e.target.value);
@@ -116,6 +178,48 @@ export default function Home() {
                           />
                         </FormControl>
                         <FormMessage className="text-red-500 text-xs m-0 p-0" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) =>
+                                date > new Date() ||
+                                date < new Date("1900-01-01")
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -167,15 +271,66 @@ export default function Home() {
                     ))}
                 </div>
 
-                {/* Calculate Shares Button */}
                 <Button
                   type="submit"
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white"
                 >
-                  Calculate Shares
+                  Calculate Shares and Generate Invoices
                 </Button>
               </form>
             </Form>
+
+            {invoices.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4">Invoices</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {invoices.map((invoice, index) => (
+                    <div
+                      key={index}
+                      className="bg-white border border-amber-200 rounded-lg p-6 shadow-md"
+                    >
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">
+                          {invoice.name}
+                        </h3>
+                        <span className="text-sm text-gray-500">
+                          {format(invoice.date, "PPP")}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="flex justify-between">
+                          <span>Advanced Payment:</span>
+                          <span className="font-medium">
+                            ₹{invoice.advancedPayment.toFixed(2)}
+                          </span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Share:</span>
+                          <span className="font-medium">
+                            ₹{invoice.share.toFixed(2)}
+                          </span>
+                        </p>
+                        <div className="border-t border-amber-200 pt-2 mt-2">
+                          <p className="flex justify-between font-bold">
+                            <span>Total Due:</span>
+                            <span>
+                              ₹{Math.max(0, invoice.share).toFixed(2)}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => generateInvoicePDF(invoice)}
+                        className="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-white"
+                      >
+                        <Download className="mr-2 h-4 w-4" /> Generate Invoice
+                        PDF
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

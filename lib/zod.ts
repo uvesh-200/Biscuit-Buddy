@@ -12,6 +12,7 @@ export const biscuitBuddyFormSchema = z.object({
     })
     .min(1, { message: "At least 1 team member is required" })
     .max(50, { message: "Team members cannot exceed 50" }),
+    date: z.date(),
     team_members: z
     .array(
       z.object({
