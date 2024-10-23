@@ -71,28 +71,35 @@ export default function Home() {
 
   const generateInvoicePDF = (invoice: any) => {
     const pdf = new jsPDF();
-    
+  
     // Set background color
     pdf.setFillColor(255, 248, 225);
     pdf.rect(0, 0, pdf.internal.pageSize.width, pdf.internal.pageSize.height, 'F');
-    
-    // Add logo
-    pdf.addImage("/logo.png", "PNG", 15, 15, 50, 25);
-    
+  
+    // Add logo, center-aligned
+    pdf.addImage("/logo1.png", "PNG", pdf.internal.pageSize.width / 2 - 25, 20, 50, 25); // Center logo
+  
     // Add title
-    pdf.setFontSize(24);
+    pdf.setFontSize(28);
     pdf.setTextColor(245, 158, 11); // amber-500
-    pdf.text("Biscuit Buddy Invoice", 105, 30, { align: "center" });
-    
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Biscuit Buddy Invoice", pdf.internal.pageSize.width / 2, 60, { align: "center" });
+  
+    // Add horizontal line separator
+    pdf.setLineWidth(0.5);
+    pdf.setDrawColor(245, 158, 11);
+    pdf.line(20, 65, pdf.internal.pageSize.width - 20, 65);
+  
     // Add invoice details
     pdf.setFontSize(14);
+    pdf.setFont("helvetica", "normal");
     pdf.setTextColor(0, 0, 0);
-    pdf.text(`Name: ${invoice.name}`, 20, 50);
-    pdf.text(`Date: ${format(invoice.date, "PPP")}`, 20, 60);
-    
-    // Add table
+    pdf.text(`Name: ${invoice.name}`, 20, 80);
+    pdf.text(`Date: ${format(invoice.date, "PPP")}`, 20, 90);
+  
+    // Adjust table styling
     (pdf as any).autoTable({
-      startY: 70,
+      startY: 110,
       head: [["Description", "Amount"]],
       body: [
         ["Advanced Payment", `₹${invoice.advancedPayment.toFixed(2)}`],
@@ -100,19 +107,32 @@ export default function Home() {
         ["Total Due", `₹${Math.max(0, invoice.share).toFixed(2)}`],
       ],
       theme: 'grid',
-      headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
-      bodyStyles: { fillColor: [255, 255, 255] },
+      headStyles: {
+        fillColor: [245, 158, 11], // Amber
+        textColor: [255, 255, 255],
+        halign: 'center', // Center the headers
+        fontSize: 12,
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontSize: 12,
+        halign: 'center', // Center the body text
+      },
       alternateRowStyles: { fillColor: [255, 251, 235] },
+      margin: { left: 20, right: 20 },
+      tableWidth: 'wrap', // Adjust to content width
     });
-    
-    // Add footer
+  
+    // Add footer with centered text
     pdf.setFontSize(12);
-    pdf.setTextColor(245, 158, 11); // amber-500
-    pdf.text("Thank you for using Biscuit Buddy!", 105, pdf.internal.pageSize.height - 20, { align: "center" });
-    
+    pdf.setTextColor(245, 158, 11);
+    pdf.text("Thank you for using Biscuit Buddy!", pdf.internal.pageSize.width / 2, pdf.internal.pageSize.height - 30, { align: "center" });
+  
     // Save the PDF
     pdf.save(`${invoice.name}_invoice.pdf`);
   };
+  
 
   return (
     <div className="min-h-screen bg-amber-50 py-6 px-4 flex flex-col justify-center sm:py-12">
